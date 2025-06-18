@@ -1,0 +1,15 @@
+{
+    "name": "zkconseq",
+    "version": "1.0.0",
+    "scripts": {
+        "compile": "node scripts/compile.js",
+        "witness": "node scripts/generateWitness.js",
+        "prove": "node scripts/generateProof.js",
+        "verify": "node scripts/verifyProof.js"
+    },
+    "dependencies": {
+        "circomlib": "^2.0.5",
+        "ffjavascript": "0.2.55",
+        "snarkjs": "^0.7.5"
+    }
+}
