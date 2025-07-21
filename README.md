@@ -1,4 +1,4 @@
-# GenomicConsensus ZKP Circuit
+# Zero-Knowledge Proof Implementation for Consensus Sequence Generation Using Circom
 
 A zero-knowledge proof circuit for genomic consensus sequence generation with multiple sequence alignment (MSA) validation, implemented in Circom.
 
@@ -90,97 +90,6 @@ zkConSeq/
 ├── test_proof.js              # Full pipeline testing
 ├── package.json               # Node.js dependencies
 └── README.md                  # This file
-```
-
-## Usage Examples
-
-### Custom Input Data
-
-```javascript
-const input = {
-    reads: [
-        [1,2,3,4,0,0,...], // ATCG + padding
-        [2,3,4,1,0,0,...], // CGTA + padding
-        // ... more reads
-    ],
-    readLens: [4, 4, 4, 4, 4],
-    expectedScore: 15,
-    alignedReads: [
-        [1,2,3,4,0,0,...], // Gapped alignment
-        // ... aligned versions
-    ],
-    isReversed: [0, 1, 0, 0, 1],
-    startPos: [0, 2, 1, 0, 3]
-};
-```
-
-### Web Integration
-
-```javascript
-const snarkjs = require("snarkjs");
-
-// Verify proof in browser/Node.js
-const vKey = await fetch("verification_key.json").then(r => r.json());
-const proof = await fetch("proof.json").then(r => r.json());
-const publicSignals = await fetch("public.json").then(r => r.json());
-
-const isValid = await snarkjs.groth16.verify(vKey, publicSignals, proof);
-console.log("Proof valid:", isValid);
-```
-
-### Smart Contract Deployment
-
-```solidity
-// Use generated GenomicConsensusVerifier.sol
-contract GenomicConsensusApp {
-    GenomicConsensusVerifier immutable verifier;
-    
-    function verifyConsensus(
-        uint[2] memory _pA,
-        uint[2][2] memory _pB,
-        uint[2] memory _pC,
-        uint[] memory _pubSignals
-    ) public view returns (bool) {
-        return verifier.verifyProof(_pA, _pB, _pC, _pubSignals);
-    }
-}
-```
-
-## Integration Examples
-
-### Web Application
-```javascript
-const snarkjs = require("snarkjs");
-
-// Load verification key
-const vKey = await fetch("/verification_key.json").then(r => r.json());
-
-// Verify proof from client
-const isValid = await snarkjs.groth16.verify(vKey, publicSignals, proof);
-if (isValid) {
-    console.log("Consensus proof verified!");
-    // Extract consensus from public signals
-    const consensus = extractConsensus(publicSignals);
-}
-```
-
-### Smart Contract Integration
-```solidity
-import "./GenomicConsensusVerifier.sol";
-
-contract GenomicRegistry {
-    GenomicConsensusVerifier immutable verifier;
-    
-    function submitConsensus(
-        uint[2] memory _pA,
-        uint[2][2] memory _pB, 
-        uint[2] memory _pC,
-        uint[] memory _pubSignals
-    ) public {
-        require(verifier.verifyProof(_pA, _pB, _pC, _pubSignals), "Invalid proof");
-        // Store verified consensus...
-    }
-}
 ```
 
 ## Base Encoding
