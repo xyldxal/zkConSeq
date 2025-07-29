@@ -55,7 +55,7 @@ template ReverseComplementSeq(seqLen) {
     component rc[seqLen];
     for (var i = 0; i < seqLen; i++) {
         rc[i] = ReverseComplement();
-        rc[i].base <== seq[seqLen - 1 - i];  // reverse order
+        rc[i].base <== seq[seqLen - 1 - i]; // reverse order
         revSeq[i] <== rc[i].revComp;
     }
 }
@@ -63,9 +63,9 @@ template ReverseComplementSeq(seqLen) {
 // --- Variable Length Sequence Matching ---
 // Check if gapped alignment matches original sequence (removing gaps)
 template SequenceMatch(maxAlnLen) {
-    signal input original[20];          // original read (max 20 bases)
-    signal input aligned[maxAlnLen];    // aligned read with gaps (max 50 bases)
-    signal input origLen;               // actual length of original
+    signal input original[20]; // original read (max 20 bases)
+    signal input aligned[maxAlnLen]; // aligned read with gaps (max 50 bases)
+    signal input origLen; // actual length of original
     signal output isMatch;
     
     // Extract non-gap bases from aligned sequence
@@ -74,11 +74,9 @@ template SequenceMatch(maxAlnLen) {
     
     // Declare all components in initial scope
     component isGap[maxAlnLen];
-    component charMatches[20];
     component lenCheck = IsEqual();
     
     extractedCount[0] <== 0;
-    var extractedIndex = 0;
     
     // Extract non-gap bases sequentially
     for (var i = 0; i < maxAlnLen; i++) {
@@ -96,9 +94,7 @@ template SequenceMatch(maxAlnLen) {
     lenCheck.in[0] <== extractedCount[maxAlnLen];
     lenCheck.in[1] <== origLen;
     
-    // For sliding alignments, we simplify validation:
-    // If the number of non-gap bases equals original length, consider it valid
-    // More complex validation would require dynamic indexing which is expensive in circuits
+    // Simplified validation for sliding alignments
     isMatch <== lenCheck.out;
 }
 
@@ -124,15 +120,16 @@ template MajorityCheck(threshold) {
 
 // --- Flexible MSA Consensus Circuit ---
 template Consensus(nReads, maxSeqLen, maxAlnLen, threshold) {
-    // Public inputs
-    signal input reads[nReads][maxSeqLen];        // Raw reads (padded)
-    signal input readLens[nReads];                // Actual lengths
-    signal input expectedScore;                   // Expected MSA score
+    // Public inputs: only sequences and alignment score
+    signal input reads[nReads][maxSeqLen]; // Raw reads (padded)
+    signal input readLens[nReads]; // Actual lengths
+    signal input expectedScore; // Expected MSA score
     
-    // Private inputs (prover's alignment strategy)
+    // Private inputs: alignment and consensus
     signal input alignedReads[nReads][maxAlnLen]; // Gapped alignments
     signal input isReversed[nReads];              // 1 if read was reverse-complemented
     signal input startPos[nReads];                // Sliding start positions
+    signal input consensus[maxAlnLen];             // The consensus sequence (private)
     
     // 1) SEQUENCE VALIDATION: Check each alignment matches its original
     component seqMatch[nReads];
@@ -170,9 +167,8 @@ template Consensus(nReads, maxSeqLen, maxAlnLen, threshold) {
         }
         seqMatch[r].origLen <== readLens[r];
         
-        // For sliding alignments, we validate that removing gaps from aligned read
-        // gives us the original read (sequence match validates this)
-        // Note: seqMatch[r].isMatch will be 1 if validation passes
+        // Enforce that sequence validation passes
+        seqMatch[r].isMatch === 1;
     }
     
     // 2) SCORE VALIDATION: Check MSA score matches expected
@@ -203,10 +199,10 @@ template Consensus(nReads, maxSeqLen, maxAlnLen, threshold) {
     component scoreCheck = IsEqual();
     scoreCheck.in[0] <== totalScore;
     scoreCheck.in[1] <== expectedScore;
-    // Score validation: output 1 if scores match, 0 otherwise
-    signal scoreValid <== scoreCheck.out;
+    // Enforce that the calculated score matches the public input
+    scoreCheck.out === 1;
     
-    // 3) CONSENSUS GENERATION: Vote per column
+    // 3) CONSENSUS VALIDATION: Verify the provided consensus matches majority voting
     signal matches[nReads][maxAlnLen][4];
     component baseEq[nReads][maxAlnLen][4];
     
@@ -236,26 +232,43 @@ template Consensus(nReads, maxSeqLen, maxAlnLen, threshold) {
             
             majorityChk[pos][base] = MajorityCheck(threshold);
             majorityChk[pos][base].count <== baseCounts[base][pos];
-            // majorityChk[pos][base].ok will be 1 if count > threshold
         }
     }
     
-    // Assemble final consensus
-    signal output consensus[maxAlnLen];
+    // Declare all components and signals for consensus validation in initial scope
+    component isGap[maxAlnLen];
+    signal hasMajoritySupport[maxAlnLen];
+    signal baseSupport[maxAlnLen][4];
+    component baseMatch[maxAlnLen][4];
+    component validConsensus[maxAlnLen];
+    
+    // Verify that the provided consensus respects majority voting
     for (var pos = 0; pos < maxAlnLen; pos++) {
-        // Find the most frequent base (simple approach: use first base that meets threshold)
-        var consensusBase = 0;
+        // Check if consensus[pos] is a gap (0)
+        isGap[pos] = IsZero();
+        isGap[pos].in <== consensus[pos];
+        
+        // If consensus[pos] is not a gap, ensure it matches a base with majority support
         for (var base = 0; base < 4; base++) {
-            consensusBase += (base + 1) * majorityChk[pos][base].ok;
+            baseMatch[pos][base] = IsEqual();
+            baseMatch[pos][base].in[0] <== consensus[pos];
+            baseMatch[pos][base].in[1] <== base + 1;
+            baseSupport[pos][base] <== baseMatch[pos][base].out * majorityChk[pos][base].ok;
         }
-        consensus[pos] <== consensusBase;
+        
+        // Sum up the support
+        hasMajoritySupport[pos] <== baseSupport[pos][0] + baseSupport[pos][1] + baseSupport[pos][2] + baseSupport[pos][3];
+        
+        // Either it's a gap or it must have majority support
+        validConsensus[pos] = IsEqual();
+        validConsensus[pos].in[0] <== isGap[pos].out + hasMajoritySupport[pos];
+        validConsensus[pos].in[1] <== 1;
+        validConsensus[pos].out === 1;  // Enforce the constraint
     }
     
-    // Final validation outputs
+    // Final validation output (indicates successful verification)
     signal output valid;
-    signal output alignmentScore;
     valid <== scoreCheck.out;
-    alignmentScore <== totalScore;
 }
 
 // Instantiation: 5 reads, max 20 bases each, max 50 alignment length, majority = 2
