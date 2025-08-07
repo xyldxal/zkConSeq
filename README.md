@@ -37,6 +37,26 @@ All while keeping the alignment strategy private.
 - `valid`: 1 if all validations pass
 
 
+## Parameter Tuning
+
+The circuit is parameterised as
+
+```circom
+component main { public [reads, readLens, expectedScore] } =
+    Consensus(nReads, maxSeqLen, maxAlnLen, threshold);
+```
+
+Change these four integers to scale the circuit, then re-compile and re-run the setup/witness/proof steps.  The default configuration used throughout this repo and benchmarks is:
+
+| Parameter | Value | Rationale |
+|-----------|-------|-----------|
+| `nReads` | **10** | keeps pairwise score validation ( 45 pairs ) lightweight |
+| `maxSeqLen` | **20** | covers typical short-read experiments |
+| `maxAlnLen` | **30** | allows gaps / indels while staying compact |
+| `threshold` | **5** | simple majority ( > 50 %) for 10 reads |
+
+This preset finishes trusted-setup in minutes and generates proofs in a few seconds on a laptop.  Larger settings (e.g. 40 reads, 100 bp alignments) are supported but will grow constraints roughly as 𝑂(n²·maxAlnLen).
+
 ## Quick Start
 
 ### 1. Install Dependencies
@@ -79,6 +99,19 @@ node test_proof.js
 - **Private inputs:** 350
 - **Public outputs:** 1
 - **Template instances:** 12
+
+## Paper Overview  
+*(see `latex/consensus.tex` for the full manuscript — work in progress)*
+
+* **Abstract & Motivation** – introduces **zkConsensus**, a Circom circuit that proves a consensus sequence was correctly built from DNA reads without revealing the alignment.
+* **Methodology** – details the three validation stages implemented in this repo:
+  1. *Sequence Validation* – each gapped alignment must reduce to the original read (with optional reverse-complement handling), implemented by `SequenceMatch`.
+  2. *Scoring Validation* – all  pairwise alignments are scored with +1/0/-1 rules (`ScoringSystem` & `PairScore`) and summed; the total must equal the public `expectedScore`.
+  3. *Consensus Validation* – majority voting (> `threshold`) across reads to justify every base in the private `consensus` string.
+* **Results (Table 1)** – shows constraint growth for four parameter sets; the default 10-read preset yields **31 959** constraints (22 672 nonlinear + 9 287 linear).
+* **Discussion / Future Work** – suggests optimising non-linear gadgets, scaling to longer genomes, and adding ambiguous-base support.
+
+---
 
 ## File Structure
 
