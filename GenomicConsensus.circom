@@ -8,13 +8,31 @@ include "node_modules/circomlib/circuits/comparators.circom";
 template ScoringSystem() {
     signal input x[2];
     signal output y;
+    
     component eq = IsEqual();
     eq.in[0] <== x[0];
     eq.in[1] <== x[1];
-    component isZero = IsZero();
-    isZero.in <== x[0];
-    signal cond <== eq.out * (1 - isZero.out);
-    y <== 2 * cond - 1;
+    
+    component isZero1 = IsZero();
+    component isZero2 = IsZero();
+    isZero1.in <== x[0];
+    isZero2.in <== x[1];
+    
+    // Break down the logic into quadratic constraints:
+    
+    // Both are non-zero AND equal = real match (+1)
+    signal bothNonZero <== (1 - isZero1.out) * (1 - isZero2.out);
+    signal realMatch <== eq.out * bothNonZero;
+    
+    // Both are gaps = neutral (0)
+    signal bothGaps <== isZero1.out * isZero2.out;
+    
+    // Everything else = mismatch (-1)
+    // This includes: gap vs base, base vs gap, different bases
+    signal isMismatch <== 1 - realMatch - bothGaps;
+    
+    // Final score: +1 for real matches, 0 for gap-gap, -1 for mismatches
+    y <== realMatch - isMismatch;
 }
 
 // Pairwise alignment score
@@ -62,8 +80,8 @@ template ReverseComplementSeq(seqLen) {
 
 // --- Variable Length Sequence Matching ---
 // Check if gapped alignment matches original sequence (removing gaps)
-template SequenceMatch(maxAlnLen) {
-    signal input original[20]; // original read (max 20 bases)
+template SequenceMatch(maxSeqLen, maxAlnLen) {
+    signal input original[maxSeqLen]; // original read (max 20 bases)
     signal input aligned[maxAlnLen]; // aligned read with gaps (max 50 bases)
     signal input origLen; // actual length of original
     signal output isMatch;
@@ -118,9 +136,8 @@ template MajorityCheck(threshold) {
     // Note: ok will be 1 if count > threshold, 0 otherwise
 }
 
-// --- Flexible MSA Consensus Circuit ---
 template Consensus(nReads, maxSeqLen, maxAlnLen, threshold) {
-    // Public inputs: only sequences and alignment score
+    // Public inputs: sequences and alignment score
     signal input reads[nReads][maxSeqLen]; // Raw reads (padded)
     signal input readLens[nReads]; // Actual lengths
     signal input expectedScore; // Expected MSA score
@@ -158,7 +175,7 @@ template Consensus(nReads, maxSeqLen, maxAlnLen, threshold) {
         }
         
         // Extract non-gap bases from aligned read for validation
-        seqMatch[r] = SequenceMatch(maxAlnLen);
+        seqMatch[r] = SequenceMatch(maxSeqLen, maxAlnLen);
         for (var i = 0; i < maxAlnLen; i++) {
             seqMatch[r].aligned[i] <== alignedReads[r][i];
         }
@@ -271,5 +288,5 @@ template Consensus(nReads, maxSeqLen, maxAlnLen, threshold) {
     valid <== scoreCheck.out;
 }
 
-// Instantiation: 5 reads, max 20 bases each, max 50 alignment length, majority = 2
-component main { public [reads, readLens, expectedScore] } = Consensus(5, 20, 50, 2);
+
+component main { public [reads, readLens, expectedScore] } = Consensus(10, 20, 30, 5);

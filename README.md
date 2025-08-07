@@ -14,8 +14,8 @@ All while keeping the alignment strategy private.
 
 ## ✅ Verification Status
 
-- **Circuit Compilation**: ✅ Successfully compiles (13,327 constraints)
-- **Simple Scenario**: ✅ 5 identical reads → Perfect consensus
+- **Circuit Compilation**: ✅ Successfully compiles (31,959 constraints)
+- **Benchmark Scenario**: ✅ 10 reads (9 identical + 1 variant) → Consensus & score validated
 - **Complex Scenario**: ✅ 4 identical + 1 SNP → Majority consensus  
 - **Proof Generation**: ✅ Zero-knowledge proofs generated
 - **Proof Verification**: ✅ All proofs verify with `snarkJS: OK!`
@@ -23,19 +23,19 @@ All while keeping the alignment strategy private.
 ## Circuit Architecture
 
 **Public Inputs:**
-- `reads[5][20]`: Raw DNA sequences (padded)
-- `readLens[5]`: Actual sequence lengths
+- `reads[10][20]`: Raw DNA sequences (padded)
+- `readLens[10]`: Actual sequence lengths
 - `expectedScore`: Expected MSA alignment score
 
 **Private Inputs:**
-- `alignedReads[5][50]`: Gapped alignment strings
-- `isReversed[5]`: Reverse complement flags
-- `startPos[5]`: Sliding alignment positions
+- `alignedReads[10][30]`: Gapped alignment strings
+- `isReversed[10]`: Reverse complement flags
+- `startPos[10]`: Sliding alignment positions
 
 **Outputs:**
-- `consensus[50]`: Generated consensus sequence
+- `consensus[30]`: Generated consensus sequence (private)
 - `valid`: 1 if all validations pass
-- `alignmentScore`: Computed MSA score
+
 
 ## Quick Start
 
@@ -74,10 +74,10 @@ node test_proof.js
 
 ## Circuit Statistics
 
-- **Constraints:** 13,327 non-linear + 4,518 linear
-- **Public inputs:** 106
-- **Private inputs:** 260
-- **Public outputs:** 52
+- **Constraints:** 22,672 non-linear + 9,287 linear
+- **Public inputs:** 211
+- **Private inputs:** 350
+- **Public outputs:** 1
 - **Template instances:** 12
 
 ## File Structure
