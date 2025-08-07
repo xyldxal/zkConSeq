@@ -1,30 +1,29 @@
 const snarkjs = require("snarkjs");
 const fs = require("fs");
-const { generateWitnessInput } = require("./witness_generator");
+const { generateWitness } = require("./witness_generator");
+
+const { execSync } = require("child_process");
 
 async function testFullPipeline() {
     console.log("🧬 GenomicConsensus ZKP Full Pipeline Test");
     console.log("=========================================");
     
     try {
-        // Step 1: Generate witness
-        console.log("\n📝 Step 1: Generating witness...");
-        const input = generateWitnessInput();
-        
-        if (!fs.existsSync("GenomicConsensus_js/GenomicConsensus.wasm")) {
-            throw new Error("WASM file not found. Please compile circuit first.");
+        // Step 1: Generate witness (writes witness.wtns & input.json internally)
+        console.log("\n📝 Step 1: Generating witness via witness_generator.js ...");
+        await generateWitness();
+        if (!fs.existsSync("witness.wtns")) {
+            throw new Error("witness.wtns not found; witness generation failed.");
         }
-        
-        await snarkjs.wtns.calculate(input, "GenomicConsensus_js/GenomicConsensus.wasm", "witness.wtns");
         console.log("✅ Witness generated: witness.wtns");
         
-        // Step 2: Generate proof
-        console.log("\n🔐 Step 2: Generating proof...");
+        // Step 2: Generate proof via snarkjs CLI to avoid API logger quirks
+        console.log("\n🔐 Step 2: Generating proof via snarkjs CLI...");
         if (!fs.existsSync("circuit_final.zkey")) {
             throw new Error("Circuit key not found. Please run setup ceremony first.");
         }
-        
-        await snarkjs.groth16.prove("circuit_final.zkey", "witness.wtns", "proof.json", "public.json");
+        const { execSync } = require("child_process");
+        execSync("snarkjs groth16 prove circuit_final.zkey witness.wtns proof.json public.json", { stdio: 'inherit' });
         console.log("✅ Proof generated: proof.json, public.json");
         
         // Step 3: Verify proof
@@ -41,30 +40,27 @@ async function testFullPipeline() {
         
         if (res) {
             console.log("🎉 Proof verification SUCCESSFUL!");
+            console.log("✔ All validations satisfied: YES");
             
             // Display proof details
             console.log("\n📊 Proof Details:");
             console.log(`   - Public inputs: ${publicSignals.length}`);
             console.log(`   - Proof size: ${JSON.stringify(proof).length} bytes`);
-            console.log(`   - Verification key size: ${JSON.stringify(vKey).length} bytes`);
             
             // Parse some public outputs
-            const nReads = 5;
+            const nReads = 10;
             const maxSeqLen = 20;
-            const maxAlnLen = 50;
             
-            // Extract consensus from public signals (last 50 values before valid/score)
-            const consensusStart = nReads * maxSeqLen + nReads + 1; // after reads, readLens, expectedScore
-            const consensus = publicSignals.slice(consensusStart, consensusStart + maxAlnLen);
-            const valid = publicSignals[publicSignals.length - 2];
-            const alignmentScore = publicSignals[publicSignals.length - 1];
-            
-            console.log("\n🧬 Results:");
-            console.log(`   - Consensus: ${consensus.map(b => ['', 'A', 'C', 'G', 'T'][b] || '-').join('')}`);
-            console.log(`   - Valid: ${valid === '1' ? 'YES' : 'NO'}`);
-            console.log(`   - Alignment Score: ${alignmentScore}`);
+            // Uncomment next two lines if you want to inspect all public signals
+            // console.log("\n Full publicSignals dump:");
+            // console.log(publicSignals);
+            const expectedScore = publicSignals[publicSignals.length - 1];
+            console.log("\n Result:");
+            console.log(`   - expectedScore (public): ${expectedScore}`);
+            // The circuit does not expose a separate valid flag; successful Groth16 verification means all constraints hold.
             
         } else {
+            console.log(" Proof verification FAILED!");
             console.log("❌ Proof verification FAILED!");
             return false;
         }
@@ -95,7 +91,7 @@ async function benchmarkProofGeneration() {
         console.log(`   Run ${i + 1}/${iterations}...`);
         const start = Date.now();
         
-        await snarkjs.groth16.prove("circuit_final.zkey", "witness.wtns", `proof_${i}.json`, `public_${i}.json`);
+        execSync(`snarkjs groth16 prove circuit_final.zkey witness.wtns proof_${i}.json public_${i}.json`, { stdio: 'inherit' });
         
         const end = Date.now();
         times.push(end - start);
