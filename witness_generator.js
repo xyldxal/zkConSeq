@@ -160,4 +160,9 @@ async function generateWitness() {
     }
 }
 
-generateWitness().catch(console.error);
+module.exports = { generateWitness };
+
+// Run standalone
+if (require.main === module) {
+    generateWitness().catch(console.error);
+}

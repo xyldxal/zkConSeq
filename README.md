@@ -6,13 +6,6 @@ This Circom circuit enables privacy-preserving validation of genomic consensus s
 
 ---
 
-## ✅ Verification Status
-
-- **Circuit Compilation**: ✅ Successfully compiles (31,959 constraints)
-- **Benchmark Scenario**: ✅ 10 reads → Consensus & score validated
-- **Proof Generation**: ✅ Zero-knowledge proofs generated
-- **Proof Verification**: ✅ All proofs verify with `snarkJS: OK!`
-
 ## Circuit Architecture
 
 **Public Inputs:**
@@ -52,24 +45,24 @@ This preset finishes trusted-setup in minutes and generates proofs in a few seco
 
 ## Usage
 
-### 1. Install dep
+### 1. Install dependencies
 ```bash
 npm install snarkjs circomlib
 ```
 
-### 2. Compile Circuit 
+### 2. Compile circuit 
 ```bash
 circom GenomicConsensus.circom --r1cs --wasm --sym
 ```
 
-### 3. Run Setup Ceremony
+### 3. Run setup ceremony
 On bash:
 ```bash
 chmod +x setup_ceremony.sh
 ./setup_ceremony.sh
 ```
 
-### 4. Generate Witness & Proof
+### 4. Generate witness & proof
 ```bash
 # Generate witness from sample data
 node witness_generator.js
@@ -81,15 +74,39 @@ snarkjs groth16 prove circuit_final.zkey witness.wtns proof.json public.json
 snarkjs groth16 verify verification_key.json public.json proof.json
 ```
 
-### 5. Run Full Test Suite
+### 5. Run core test suite
 On bash:
 ```bash
 node test_proof.js
 ```
 
+### 6. Run equivalence partition tests
+`test_equivalence_partitions.js` executes eight representative read sets that exercise all major alignment edge-cases (perfect match, mismatches, gaps, mixed events, length variations, etc.).  Proof generation and verification should succeed for every partition when the circuit parameters remain at the default
+preset (10, 20, 30, 5).
 
+```bash
+node test_equivalence_partitions.js
+```
+
+Verifying proof for specific test case:
+```bash
+#testCases:
+#    '1-all-perfect-match',
+#    '2-mismatch-no-gap',
+#    '3-gaps-no-mismatch',
+#    '4-gaps-and-mismatches',
+#    '5-leading-trailing-gaps',
+#    '6-unequal-lengths',
+#    '7-mixed-complex',
+#    '8-minimal-single-base'
+
+#CASE=1-all-perfect-match, change to any test case
+snarkjs groth16 verify verification_key.json \
+                       public_${CASE}.json \
+                       proof_${CASE}.json
+```
 ## Paper Details  
-*Paper to be submitted to <TBA>*
+Paper to be submitted to *TBA*.
 
 * **Abstract** – introduces **zkConsensus**, a Circom circuit that proves a consensus sequence was correctly built from DNA reads without revealing alignment details and the actual consensus sequence.
 * **Methodology** – details the three validation stages implemented in this repo:
@@ -107,6 +124,6 @@ zkConSeq/
 ├── witness_generator.js        # Sample data & witness generation
 ├── setup_ceremony.sh          # Trusted setup script
 ├── test_proof.js              # Full pipeline testing
-├── package.json               # Node.js dependencies
+├── test_equivalence_partitions.js # Equivalence partition testing
 └── README.md                  # This file
 ```
