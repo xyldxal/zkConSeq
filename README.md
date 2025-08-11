@@ -101,9 +101,7 @@ Verifying proof for specific test case:
 #    '8-minimal-single-base'
 
 #CASE=1-all-perfect-match, change to any test case
-snarkjs groth16 verify verification_key.json \
-                       public_${CASE}.json \
-                       proof_${CASE}.json
+snarkjs groth16 verify verification_key.json public_${CASE}.json proof_${CASE}.json
 ```
 ## Paper Details  
 Paper to be submitted to *TBA*.
